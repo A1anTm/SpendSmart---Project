@@ -1,0 +1,20 @@
+# Frontend
+frontend/node_modules
+frontend/.next
+frontend/.env.local
+frontend/.vercel
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+frontend/.DS_Store
+
+# Backend
+backend/node_modules
+backend/.env
+backend/logs
+backend/uploads
+backend/.DS_Store
+
+# General
+.DS_Store
+*.log
+*.tmp
