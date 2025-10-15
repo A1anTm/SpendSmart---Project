@@ -115,7 +115,7 @@ export default function LoginForm({ onSuccess }: Props) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-100 mb-1">Correo Electrónico</label>
         <input
           name="email"
           type="email"
@@ -129,7 +129,7 @@ export default function LoginForm({ onSuccess }: Props) {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-100 mb-1">Contraseña</label>
         <input
           name="password"
           type="password"

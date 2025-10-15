@@ -63,7 +63,7 @@ export default function ResetPassword({ email, onPasswordReset, onChangeEmail }:
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                     </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">Código de Verificación</h2>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center dark:text-gray-100">Código de Verificación</h2>
                 <p className="text-gray-500 text-sm mb-4 text-center">Ingresa el código de 6 dígitos que enviamos a tu email</p>
             </div>
 
@@ -80,13 +80,13 @@ export default function ResetPassword({ email, onPasswordReset, onChangeEmail }:
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Código de Verificación</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-100">Código de Verificación</label>
                     <input type="text" placeholder="123456" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} onBlur={() => setCodeTouched(true)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500" />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nueva Contraseña</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-100">Nueva Contraseña</label>
                     <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} onBlur={() => setPasswordTouched(true)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${passwordTouched && passwordError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-teal-500'}`} />
                     {passwordTouched && passwordError && <p className="text-red-500 text-xs mt-1">{passwordError}</p>}

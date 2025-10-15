@@ -4,6 +4,8 @@ import api from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
 import { IoCashOutline } from 'react-icons/io5';
+import { useAuth } from '@/app/contexts/AuthContext';
+
 
 
 interface Tx {
@@ -24,7 +26,7 @@ interface Category {
 
 export default function TransactionsPage() {
     const router = useRouter();
-
+    const { setShowTokenExpiredModal } = useAuth();
     const [transactions, setTransactions] = useState<Tx[]>([]);
     const [allCategories, setAllCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ export default function TransactionsPage() {
         amount: '',
         description: '',
         category_id: '',
-        date: new Date().toISOString().slice(0, 10),
+        date: new Date().toLocaleDateString('en-CA')
     });
 
     const [filters, setFilters] = useState({
@@ -81,11 +83,14 @@ export default function TransactionsPage() {
 
         if (!f.date) e.date = 'La fecha es obligatoria';
         else {
-            const d = new Date(f.date);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            if (isNaN(d.getTime())) e.date = 'Fecha inválida';
-            else if (d > today) e.date = 'La fecha no puede ser futura';
+
+            const [y, m, d] = f.date.split('-').map(Number);
+            const selected = new Date(y, m - 1, d); // meses empiezan en 0
+
+            if (isNaN(selected.getTime())) e.date = 'Fecha inválida';
+            else if (selected < today) e.date = 'No se permiten fechas anteriores a hoy';
         }
 
         if (f.description && f.description.length > 250) e.description = 'La descripción no puede superar 250 caracteres';
@@ -155,6 +160,7 @@ export default function TransactionsPage() {
             setTotal(data.total || 0);
         } catch (err: any) {
             if (err?.response?.status === 401) {
+                setShowTokenExpiredModal(true);
                 return;
             }
             console.error('Error fetching transactions:', err);
@@ -164,6 +170,14 @@ export default function TransactionsPage() {
             setLoading(false);
         }
     };
+
+    const goToPage = (newPage: number) => {
+    setFilters(prev => ({ ...prev, page: newPage }));
+    };
+
+    const totalPages = Math.ceil(total / filters.limit);
+    const hasNextPage = filters.page < totalPages;
+    const hasPrevPage = filters.page > 1;
 
     useEffect(() => {
         if (!showForm) {
@@ -201,16 +215,25 @@ export default function TransactionsPage() {
         }
 
         const t = token();
+        if (!t) {
+        setShowTokenExpiredModal(true); // ← sin token, abre modal
+        return;
+        }
         try {
+            const dateTimeLocal = form.date + 'T' + new Date().toTimeString().slice(0, 8);
             await api.post(
                 '/transactions',
-                { ...form, amount: Number(form.amount) },
+                { ...form, amount: Number(form.amount),  date: dateTimeLocal },
                 { headers: { Authorization: `Bearer ${t}` } }
             );
             setForm({ ...form, amount: '', description: '', category_id: '' });
             setShowForm(false);
             showNotification('Transacción creada', 'success');
         } catch (err: any) {
+            if (err?.response?.status === 401) {
+            setShowTokenExpiredModal(true); // ← token expirado, abre modal
+            return;
+            }
             const error = err as AxiosError<{ message?: string }>;
             const msg = error.response?.data?.message || 'Error al agregar la transacción';
             showNotification(msg, 'error');
@@ -448,7 +471,7 @@ export default function TransactionsPage() {
                                                         <span>•</span>
                                                         <span>{tx.category}</span>
                                                         <span>•</span>
-                                                        <span>{new Date(tx.date).toLocaleDateString()}</span>
+                                                        <span>{tx.date.slice(0, 10).split('-').reverse().join('/')}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -457,6 +480,38 @@ export default function TransactionsPage() {
                                             </span>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+                            {/* Paginación */}
+                            {!loading && transactions.length > 0 && totalPages > 1 && (
+                                <div className="p-4 border-t flex items-center justify-between">
+                                    <div className="text-sm text-gray-600">
+                                        Página {filters.page} de {totalPages}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => goToPage(filters.page - 1)}
+                                            disabled={!hasPrevPage}
+                                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                                hasPrevPage 
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            ← Anterior
+                                        </button>
+                                        <button
+                                            onClick={() => goToPage(filters.page + 1)}
+                                            disabled={!hasNextPage}
+                                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                                hasNextPage 
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                            }`}
+                                        >
+                                            Siguiente →
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>

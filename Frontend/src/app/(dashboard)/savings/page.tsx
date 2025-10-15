@@ -411,10 +411,10 @@ export default function SavingsGoalsPage() {
                         />
                         <div className="relative bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full z-10">
                             <h2 className="text-xl font-semibold mb-2">Agregar dinero a tu meta</h2>
-                            <p className="text-sm text-gray-600 mb-4">{selectedGoalName}</p>
+                            <p className="text-sm text-gray-600 mb-4 dark:text-gray-100">{selectedGoalName}</p>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Monto a abonar</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-100 mb-1">Monto a abonar</label>
                                 <input
                                     type="number"
                                     value={addMoneyAmount}
@@ -422,7 +422,7 @@ export default function SavingsGoalsPage() {
                                         setAddMoneyAmount(e.target.value);
                                         setAddMoneyError('');
                                     }}
-                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                    className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-gray-100"
                                 />
                                 {addMoneyError && <p className="text-red-500 text-xs mt-1">{addMoneyError}</p>}
                             </div>

@@ -27,6 +27,17 @@ const validateProfile = (d: UserData) => {
   return null;
 };
 
+const COUNTRIES = [
+  "United States", "Canada", "Mexico", "United Kingdom", "Germany", "France", "Spain", "Italy",
+  "Netherlands", "Belgium", "Switzerland", "Austria", "Sweden", "Norway", "Denmark", "Finland",
+  "Ireland", "Portugal", "Poland", "Czech Republic", "Greece", "Turkey", "Russia", "China",
+  "Japan", "South Korea", "India", "Pakistan", "Brazil", "Argentina", "Colombia", "Chile",
+  "Peru", "Venezuela", "Australia", "New Zealand", "Indonesia", "Malaysia", "Philippines",
+  "Thailand", "Vietnam", "Singapore", "Hong Kong", "Israel", "United Arab Emirates", "Saudi Arabia",
+  "South Africa", "Nigeria", "Egypt", "Kenya", "Morocco", "Romania", "Hungary", "Bulgaria",
+  "Slovakia", "Slovenia", "Estonia", "Lithuania", "Latvia", "Ukraine"
+];
+
 const validatePasswordFields = (current: string, nw: string, confirm: string) => {
   const e: Record<string, string> = {};
   if (!current) e.currentPassword = 'La contraseña actual es obligatoria';
@@ -112,7 +123,7 @@ export default function ProfileSettingsPage(): JSX.Element {
         setUserData({
           full_name: data.full_name || '',
           phone_number: data.phone_number || '',
-          country: data.country || '',
+          country: data.country ? String(data.country).trim() : '',
           birthdate: data.birthdate ? new Date(data.birthdate).toISOString().split('T')[0] : '',
           bio: data.bio || '',
           social_accounts: Array.isArray(data.social_accounts) ? data.social_accounts : [],
@@ -166,7 +177,10 @@ export default function ProfileSettingsPage(): JSX.Element {
     if (err) { setError(err); showNotification(err, 'error'); return; }
     try {
       setSaving(true);
-      const payload = { ...userData };
+      const payload = {
+      ...userData,
+      country: userData.country ? String(userData.country).trim() : ''
+    };
       const res = await api.put('/users', payload);
 
       const returned = res.data?.user ?? res.data;
@@ -337,7 +351,18 @@ export default function ProfileSettingsPage(): JSX.Element {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-100">País</label>
-                    <input name="country" maxLength={20} value={userData.country} onChange={handleInputChange} disabled={saving} className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-gray-100" />
+                    <select
+                      name="country"
+                      value={userData.country}
+                      onChange={handleInputChange}
+                      disabled={saving}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-gray-100"
+                    >
+                      <option value="">Selecciona un país</option>
+                      {COUNTRIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

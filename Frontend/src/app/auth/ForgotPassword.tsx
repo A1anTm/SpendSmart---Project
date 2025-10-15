@@ -29,23 +29,23 @@ export default function ForgotPassword({ onCodeSent, onBackToLogin }: ForgotPass
     };
 
     return (
-        <div className="bg-white rounded-lg shadow-md p-6 md:p-8 w-full max-w-md mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 md:p-8 w-full max-w-md mx-auto">
             <div className="flex flex-col items-center mb-6">
                 <div className="w-16 h-16 bg-teal-500 rounded-full flex items-center justify-center mb-4">
                     <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">¿Olvidaste tu contraseña?</h2>
-                <p className="text-gray-500 text-sm mb-4 text-center">Ingresa tu email y te enviaremos un código de verificación.</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center dark:text-gray-100">¿Olvidaste tu contraseña?</h2>
+                <p className="text-gray-500 text-sm mb-4 text-center dark:text-gray-100">Ingresa tu email y te enviaremos un código de verificación.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-100">Correo Electrónico</label>
                     <input type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)}
                         className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 border-gray-300 focus:ring-teal-500" />
-                    <p className="text-xs text-gray-500 mt-1">Te enviaremos un código de verificación para crear una nueva contraseña.</p>
+                    <p className="text-xs text-gray-500 mt-1 dark:text-gray-100">Te enviaremos un código de verificación para crear una nueva contraseña.</p>
                 </div>
 
                 {serverError && <p className="text-red-500 text-sm">{serverError}</p>}
@@ -60,9 +60,7 @@ export default function ForgotPassword({ onCodeSent, onBackToLogin }: ForgotPass
                 </button>
             </form>
 
-            <div className="mt-6 pt-4 border-t border-gray-200 text-center">
-                <p className="text-xs text-gray-500">Si continúas teniendo problemas, contáctanos en <a href="mailto:soporte@spendmart.com" className="text-teal-600">soporte@spendmart.com</a></p>
-            </div>
+            
         </div>
     );
 }
