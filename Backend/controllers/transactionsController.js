@@ -1,6 +1,8 @@
 import Transaction from "../models/transactionsModel.js";
 import Category from "../models/categoryModel.js";
 import mongoose from "mongoose";
+import { checkBudgetAlert } from './budgetsController.js';
+
 
 export const createTransaction = async (req, res) => {
   try {
@@ -51,10 +53,25 @@ export const createTransaction = async (req, res) => {
     user_id: req.user._id,
     type,
     amount,
-    date: date ? new Date(date) : new Date(), 
+    date: req.body.date ? new Date(req.body.date) : new Date(),
     category_id,
     description: description || null
   });
+
+    console.log('[CREATE-TX] Transacción creada:', {
+    id: newTx._id.toString(),
+    user: req.user._id.toString(),
+    type: newTx.type,
+    amount: newTx.amount.toString(),
+    date: newTx.date.toISOString(),
+    category_id
+  });
+
+    if (type === 'gasto' && category_id) {
+  const month = new Date(newTx.date).toISOString().slice(0, 7); // "YYYY-MM" del date almacenado
+  console.log('[CREATE-TX] Invocando checkBudgetAlert con month:', month);
+  await checkBudgetAlert(req.user._id, category_id, month);
+}
 
     return res.status(201).json({ message: 'Transacción creada exitosamente' });
   } catch (err) {
@@ -128,11 +145,11 @@ export const getTransactionsByFilter = async (req, res) => {
     if (type) match.type = type;
     if (startDate || endDate) {
       match.date = {};
-      if (startDate) match.date.$gte = new Date(startDate);
-      if (endDate) match.date.$lte = new Date(endDate);
+      if (startDate) match.date.$gte = new Date(startDate + 'T00:00:00');;
+      if (endDate) match.date.$lte = new Date(endDate   + 'T23:59:59');;
     }
 
-    const pipeline = [
+    const dataPipeline = [
       { $match: match },
       {
         $lookup: {
@@ -143,12 +160,8 @@ export const getTransactionsByFilter = async (req, res) => {
         }
       },
       { $unwind: { path: '$cat', preserveNullAndEmptyArrays: true } },
-
-      ...(categoryName ? [{
-        $match: { 'cat.name': { $regex: categoryName, $options: 'i' } }
-      }] : []),
-
-      { $sort: { date: -1 } },
+      ...(categoryName ? [{ $match: { 'cat.name': { $regex: categoryName, $options: 'i' } } }] : []),
+      { $sort: { date: -1, _id: -1 } },            
       { $skip: skip },
       { $limit: Number(limit) },
       {
@@ -165,13 +178,24 @@ export const getTransactionsByFilter = async (req, res) => {
       }
     ];
 
+    /* ------------- pipeline solo para contar ------------- */
     const countPipeline = [
-      ...pipeline.slice(0, -3), 
+      { $match: match },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category_id',
+          foreignField: '_id',
+          as: 'cat'
+        }
+      },
+      { $unwind: { path: '$cat', preserveNullAndEmptyArrays: true } },
+      ...(categoryName ? [{ $match: { 'cat.name': { $regex: categoryName, $options: 'i' } } }] : []),
       { $count: 'total' }
     ];
 
     const [data, totalResult] = await Promise.all([
-      Transaction.aggregate(pipeline),
+      Transaction.aggregate(dataPipeline),
       Transaction.aggregate(countPipeline)
     ]);
 
@@ -186,4 +210,3 @@ export const getTransactionsByFilter = async (req, res) => {
     return res.status(500).json({ message: 'Error al obtener transacciones' });
   }
 };
-

@@ -11,7 +11,7 @@ export const generatetoken = (user) => {
         },
         process.env.JWT_SECRET,
         {
-            expiresIn: "5m",
+            expiresIn: "10m",
         }
     );
     console.info('[generatetoken] Token generado exitosamente', token);

@@ -190,6 +190,8 @@ export const getProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
+    const userId = req.user._id;
+
     const {
       full_name,
       phone_number,
@@ -199,28 +201,50 @@ export const updateProfile = async (req, res) => {
       social_accounts
     } = req.body;
 
+    // Construimos el objeto updates sólo con los campos presentes en el body
+    const updates = {};
+
+    if (typeof full_name === 'string') updates.full_name = full_name.trim();
+    if (typeof phone_number === 'string') updates.phone_number = phone_number.trim();
+    if (typeof country === 'string') updates.country = country.trim();
+    if (typeof bio === 'string') updates.bio = bio.trim();
+
+    if (birthdate !== undefined) {
+      if (birthdate === '' || birthdate === null) {
+        updates.birthdate = null;
+      } else {
+        const d = new Date(birthdate);
+        if (isNaN(d.getTime())) {
+          return res.status(400).json({ message: 'Fecha de nacimiento inválida' });
+        }
+        updates.birthdate = d;
+      }
+    }
+
+    if (Array.isArray(social_accounts)) {
+      updates.social_accounts = social_accounts;
+    }
+
     const updated = await User.findByIdAndUpdate(
-      req.user._id,
-      {
-        full_name,
-        phone_number,
-        birthdate,
-        country,
-        bio,
-        address,
-        social_accounts
-      },
-      { new: true, runValidators: true }
-    );
+      userId,
+      { $set: updates },
+      { new: true, runValidators: true, context: 'query' }
+    )
+      .select('-password -password_history -resetPasswordToken -resetPasswordExpires') // no enviar datos sensibles
+      .lean();
 
     if (!updated) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-    return res.json({ message: 'Perfil actualizado con éxito' });
+    return res.json({ message: 'Perfil actualizado con éxito', user: updated });
   } catch (e) {
-    console.error(e);
+    console.error('[UPDATE-PROFILE] Error:', e);
+    if (e.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Datos inválidos', details: e.errors });
+    }
     return res.status(500).json({ message: 'Error al actualizar perfil' });
   }
 };
+
 
 export const changePassword = async (req, res) => {
   try {
