@@ -1,12 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/api';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { AxiosError } from 'axios';
 import { IoCashOutline } from 'react-icons/io5';
 import { useAuth } from '@/app/contexts/AuthContext';
-
-
 
 interface Tx {
     _id: string;
@@ -26,11 +24,18 @@ interface Category {
 
 export default function TransactionsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { setShowTokenExpiredModal } = useAuth();
+
     const [transactions, setTransactions] = useState<Tx[]>([]);
     const [allCategories, setAllCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // control de vistas (form vs lista)
     const [showForm, setShowForm] = useState(true);
+
+    // bloqueo para evitar múltiples envíos
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [notification, setNotification] = useState({
         show: false,
@@ -50,11 +55,11 @@ export default function TransactionsPage() {
         amount: '',
         description: '',
         category_id: '',
-        date: new Date().toLocaleDateString('en-CA')
+        date: new Date().toLocaleDateString('en-CA'),
     });
 
     const [filters, setFilters] = useState({
-        type: 'gasto' as 'gasto' | 'ingreso',
+        type: '' as 'gasto' | 'ingreso' | '',
         categoryName: '',
         startDate: '',
         endDate: '',
@@ -70,7 +75,7 @@ export default function TransactionsPage() {
     );
 
     const filterCategories = allCategories.filter(
-        (cat) => !filters.type || !cat.appliesTo || cat.appliesTo === filters.type
+        (cat) => !filters.type || !cat.appliesTo || cat.appliesTo === (filters.type || undefined)
     );
 
     const validateTransaction = (f: typeof form) => {
@@ -104,9 +109,8 @@ export default function TransactionsPage() {
 
     const isFormValid = Object.keys(validateTransaction(form)).length === 0;
 
-
     const buildBody = () => ({
-        type: filters.type,
+        type: filters.type || undefined,
         ...(filters.categoryName && { categoryName: filters.categoryName }),
         ...(filters.startDate && { startDate: filters.startDate }),
         ...(filters.endDate && { endDate: filters.endDate }),
@@ -114,6 +118,7 @@ export default function TransactionsPage() {
         limit: filters.limit,
     });
 
+    // load categories once
     useEffect(() => {
         const t = token();
         if (!t) return;
@@ -147,7 +152,7 @@ export default function TransactionsPage() {
             .catch((err) => console.error('Error al cargar categorías:', err));
     }, []);
 
-    const fetchTransactions = async () => {
+    const fetchTransactions = useCallback(async () => {
         setLoading(true);
         const t = token();
 
@@ -169,21 +174,43 @@ export default function TransactionsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filters, setShowTokenExpiredModal]);
 
     const goToPage = (newPage: number) => {
-    setFilters(prev => ({ ...prev, page: newPage }));
+        setFilters((prev) => ({ ...prev, page: newPage }));
     };
 
     const totalPages = Math.ceil(total / filters.limit);
     const hasNextPage = filters.page < totalPages;
     const hasPrevPage = filters.page > 1;
 
+    // read URL query params and set view/filters accordingly
+    useEffect(() => {
+        const viewParam = searchParams?.get('view'); // 'add' | 'list' | null
+        const filterParam = searchParams?.get('filter'); // 'gasto' | 'ingreso' | category name ?
+
+        if (viewParam === 'list') {
+            setShowForm(false);
+        } else if (viewParam === 'add') {
+            setShowForm(true);
+        }
+
+        // if filter param indicates type 'gasto' or 'ingreso', set type filter
+        if (filterParam === 'gasto' || filterParam === 'ingreso') {
+            setFilters((prev) => ({ ...prev, type: filterParam, page: 1 }));
+        } else if (filterParam) {
+            // if filter is a category name, set categoryName
+            setFilters((prev) => ({ ...prev, categoryName: filterParam, page: 1 }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
+
+    // when filters change (or showForm switches to list) fetch
     useEffect(() => {
         if (!showForm) {
             fetchTransactions();
         }
-    }, [filters, showForm]);
+    }, [filters, showForm, fetchTransactions]);
 
     const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -199,7 +226,7 @@ export default function TransactionsPage() {
         const { name, value } = e.target;
 
         if (name === 'type') {
-            setFilters((prev) => ({ ...prev, type: value as 'gasto' | 'ingreso', categoryName: '', page: 1 }));
+            setFilters((prev) => ({ ...prev, type: value as 'gasto' | 'ingreso' | '', categoryName: '', page: 1 }));
         } else {
             setFilters((prev) => ({ ...prev, [name]: value, page: 1 }));
         }
@@ -207,6 +234,8 @@ export default function TransactionsPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSubmitting) return; // evita reentradas
+
         const errors = validateTransaction(form);
         setFormErrors(errors);
         if (Object.keys(errors).length > 0) {
@@ -216,32 +245,43 @@ export default function TransactionsPage() {
 
         const t = token();
         if (!t) {
-        setShowTokenExpiredModal(true); // ← sin token, abre modal
-        return;
+            setShowTokenExpiredModal(true); // ← sin token, abre modal
+            return;
         }
         try {
+            setIsSubmitting(true);
             const dateTimeLocal = form.date + 'T' + new Date().toTimeString().slice(0, 8);
             await api.post(
                 '/transactions',
-                { ...form, amount: Number(form.amount),  date: dateTimeLocal },
+                { ...form, amount: Number(form.amount), date: dateTimeLocal },
                 { headers: { Authorization: `Bearer ${t}` } }
             );
             setForm({ ...form, amount: '', description: '', category_id: '' });
-            setShowForm(false);
+            // after creating, show list and refresh (and update URL)
+            router.push('/transactions?view=list');
             showNotification('Transacción creada', 'success');
         } catch (err: any) {
             if (err?.response?.status === 401) {
-            setShowTokenExpiredModal(true); // ← token expirado, abre modal
-            return;
+                setShowTokenExpiredModal(true);
+                return;
             }
             const error = err as AxiosError<{ message?: string }>;
             const msg = error.response?.data?.message || 'Error al agregar la transacción';
             showNotification(msg, 'error');
+        } finally {
+            // desactivar el bloqueo (si la navegación ocurre, el componente se desmontará)
+            setIsSubmitting(false);
         }
     };
 
+    // toggleView ahora actualiza URL, la effect de searchParams se encargará de cambiar showForm
     const toggleView = () => {
-        setShowForm(!showForm);
+        if (showForm) {
+            // queremos ver la lista
+            router.push('/transactions?view=list');
+        } else {
+            router.push('/transactions?view=add');
+        }
     };
 
     return (
@@ -282,8 +322,12 @@ export default function TransactionsPage() {
                                         onChange={handleFormChange}
                                         className="w-full px-3 py-2 border dark:bg-gray-700 dark:text-gray-100 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
-                                        <option value="gasto" className="dark:text-gray-100" >Gasto</option>
-                                        <option value="ingreso" className="dark:text-gray-100">Ingreso</option>
+                                        <option value="gasto" className="dark:text-gray-100">
+                                            Gasto
+                                        </option>
+                                        <option value="ingreso" className="dark:text-gray-100">
+                                            Ingreso
+                                        </option>
                                     </select>
                                 </div>
                                 <div>
@@ -322,7 +366,9 @@ export default function TransactionsPage() {
                                         className="w-full px-3 py-2 border dark:bg-gray-700 dark:text-gray-100 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     >
-                                        <option value="" className="dark:text-gray-100" >Selecciona una categoría</option>
+                                        <option value="" className="dark:text-gray-100">
+                                            Selecciona una categoría
+                                        </option>
                                         {formCategories.map((c) => (
                                             <option key={c._id} value={c._id} className="dark:text-gray-100">
                                                 {c.name}
@@ -344,10 +390,24 @@ export default function TransactionsPage() {
                             </div>
                             <button
                                 type="submit"
-                                disabled={!isFormValid}
-                                className={`w-full py-3 px-4 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${isFormValid ? 'bg-gradient-to-r from-green-500 to-blue-600 text-white hover:from-blue-600 hover:to-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                                disabled={!isFormValid || isSubmitting}
+                                aria-busy={isSubmitting}
+                                className={`w-full py-3 px-4 rounded-md font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isFormValid || isSubmitting
+                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-80'
+                                        : 'bg-gradient-to-r from-green-500 to-blue-600 text-white hover:from-blue-600 hover:to-green-700'
+                                    }`}
                             >
-                                Agregar Transacción
+                                {isSubmitting ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeOpacity="0.25" />
+                                            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                                        </svg>
+                                        Cargando...
+                                    </span>
+                                ) : (
+                                    'Agregar Transacción'
+                                )}
                             </button>
                         </form>
                     </div>
@@ -366,9 +426,15 @@ export default function TransactionsPage() {
                                         onChange={handleFilterChange}
                                         className="w-full px-3 py-2 border dark:bg-gray-700 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
-                                        <option value="" className="dark:text-gray-100" >Todos los tipos</option>
-                                        <option value="gasto" className="dark:text-gray-100" >Gastos</option>
-                                        <option value="ingreso" className="dark:text-gray-100">Ingresos</option>
+                                        <option value="" className="dark:text-gray-100">
+                                            Todos los tipos
+                                        </option>
+                                        <option value="gasto" className="dark:text-gray-100">
+                                            Gastos
+                                        </option>
+                                        <option value="ingreso" className="dark:text-gray-100">
+                                            Ingresos
+                                        </option>
                                     </select>
                                 </div>
 
@@ -380,7 +446,9 @@ export default function TransactionsPage() {
                                         onChange={handleFilterChange}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700"
                                     >
-                                        <option value="" className="dark:text-gray-100">Todas las categorías</option>
+                                        <option value="" className="dark:text-gray-100">
+                                            Todas las categorías
+                                        </option>
                                         {filterCategories.map((c) => (
                                             <option key={c._id} value={c.name} className="dark:text-gray-100">
                                                 {c.name}
@@ -411,7 +479,6 @@ export default function TransactionsPage() {
                                     />
                                 </div>
 
-
                                 <div>
                                     <button
                                         onClick={fetchTransactions}
@@ -434,36 +501,25 @@ export default function TransactionsPage() {
                                     <p>Cargando...</p>
                                 </div>
                             ) : transactions.length === 0 ? (
-                                <div className="p-6 text-center text-gray-500">
-                                    No se encontraron transacciones con los filtros aplicados.
-                                </div>
+                                <div className="p-6 text-center text-gray-500">No se encontraron transacciones con los filtros aplicados.</div>
                             ) : (
                                 <div className="divide-y">
                                     {transactions.map((tx) => (
-                                        <div
-                                            key={tx._id}
-                                            className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-600"
-                                        >
+                                        <div key={tx._id} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-600">
                                             <div className="flex items-center gap-3">
                                                 <div
-                                                    className={`w-8 h-8 rounded-md flex items-center justify-center ${tx.type === 'ingreso' ? 'bg-emerald-100' : 'bg-blue-100'
-                                                        }`}
+                                                    className={`w-8 h-8 rounded-md flex items-center justify-center ${tx.type === 'ingreso' ? 'bg-emerald-100' : 'bg-blue-100'}`}
                                                 >
                                                     <IoCashOutline
-                                                        className={`w-4 h-4 ${tx.type === 'ingreso' ? 'text-emerald-600' : 'text-green-600'
-                                                            }`}
+                                                        className={`w-4 h-4 ${tx.type === 'ingreso' ? 'text-emerald-600' : 'text-green-600'}`}
                                                     />
                                                 </div>
 
                                                 <div>
-                                                    <h4 className="font-medium text-gray-800 dark:text-gray-100">
-                                                        {tx.description || 'Sin descripción'}
-                                                    </h4>
+                                                    <h4 className="font-medium text-gray-800 dark:text-gray-100">{tx.description || 'Sin descripción'}</h4>
                                                     <div className="flex items-center gap-1 text-xs text-gray-500">
                                                         <span
-                                                            className={`px-2 py-1 rounded text-xs font-medium ${tx.type === 'ingreso'
-                                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                                    : 'bg-red-100 text-red-800'
+                                                            className={`px-2 py-1 rounded text-xs font-medium ${tx.type === 'ingreso' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
                                                                 }`}
                                                         >
                                                             {tx.type === 'ingreso' ? 'Ingreso' : 'Gasto'}
@@ -482,6 +538,7 @@ export default function TransactionsPage() {
                                     ))}
                                 </div>
                             )}
+
                             {/* Paginación */}
                             {!loading && transactions.length > 0 && totalPages > 1 && (
                                 <div className="p-4 border-t flex items-center justify-between">
@@ -492,22 +549,16 @@ export default function TransactionsPage() {
                                         <button
                                             onClick={() => goToPage(filters.page - 1)}
                                             disabled={!hasPrevPage}
-                                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                                                hasPrevPage 
-                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                            }`}
+                                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${hasPrevPage ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                }`}
                                         >
                                             ← Anterior
                                         </button>
                                         <button
                                             onClick={() => goToPage(filters.page + 1)}
                                             disabled={!hasNextPage}
-                                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                                                hasNextPage 
-                                                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                            }`}
+                                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${hasNextPage ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                }`}
                                         >
                                             Siguiente →
                                         </button>

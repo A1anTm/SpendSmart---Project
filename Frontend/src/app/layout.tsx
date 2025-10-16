@@ -4,17 +4,10 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { AuthProviderWrapper } from '@/components/AuthProviderWrapper';
 import Script from 'next/script';
-import ThemeInitializer from '@/components/ThemeInitializer';
+import { cookies } from 'next/headers';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
+const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'SpendSmart',
@@ -22,10 +15,8 @@ export const metadata: Metadata = {
 };
 
 /**
- * Script que se ejecuta ANTES de la hidratación de React.
- *  - Lee localStorage.theme (si está disponible).
- *  - Si no hay preferencia guardada, usa prefers-color-scheme.
- *  - Añade/remueve la clase 'dark' en document.documentElement.
+ * Fallback script (antes de hydration) — lo dejamos como fallback, pero la cookie
+ * es la principal fuente para que el servidor ponga la clase en el HTML.
  */
 const setInitialTheme = `(function() {
   try {
@@ -39,22 +30,25 @@ const setInitialTheme = `(function() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-  } catch (e) {
-    // ignoramos errores (modo privado, bloqueos de localStorage, etc.)
-  }
+  } catch (e) {}
 })();`;
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+/**
+ * RootLayout es async para poder await cookies() en el servidor.
+ */
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // <-- aquí usamos await
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('theme')?.value;
+  const htmlClass = themeCookie === 'dark' ? 'dark' : '';
+
   return (
-    <html lang="es">
+    <html lang="es" className={htmlClass}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* Ejecuta ANTES de que React hidrate para evitar mismatch */}
+        {/* Ejecuta ANTES de que React hidrate — fallback si no hay cookie */}
         <Script id="theme-initializer" strategy="beforeInteractive">
           {setInitialTheme}
         </Script>
-        <ThemeInitializer />
 
         <AuthProviderWrapper>{children}</AuthProviderWrapper>
       </body>

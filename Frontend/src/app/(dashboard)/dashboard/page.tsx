@@ -179,29 +179,29 @@ export default function DashboardPage() {
         <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
           <span className="text-emerald-500">⚡</span> Acciones Rápidas
         </h3>
-        <div className="space-y-3">
+         <div className="space-y-3">
           <button
-            onClick={() => (window.location.href = '/transactions')}
+            onClick={() => router.push('/transactions?view=add')}
             className="w-full bg-emerald-500 text-white px-4 py-3 rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
           >
             + Agregar Transacción
           </button>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => (window.location.href = '/expenses')}
+              onClick={() => router.push('/transactions?view=list')}
               className="bg-gray-50 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-sm"
             >
               Ver Gastos
             </button>
             <button
-              onClick={() => (window.location.href = '/budgets')}
+              onClick={() => router.push('/budgets')}
               className="bg-gray-50 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors text-sm"
             >
               Presupuesto
             </button>
           </div>
           <button
-            onClick={() => (window.location.href = '/savings')}
+            onClick={() => router.push('/savings')}
             className="w-full bg-blue-50 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm"
           >
             Metas de Ahorro

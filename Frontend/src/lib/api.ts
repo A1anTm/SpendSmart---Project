@@ -12,8 +12,17 @@ export const setupApiInterceptors = (onUnauthorized: () => void) => {
   const interceptor = api.interceptors.response.use(
     (res) => res,
     (err) => {
-      if (err.response?.status === 401 && typeof window !== 'undefined') {
-        onUnauthorized();
+            // Si la respuesta es 401, y la petición NO incluye la cabecera
+      // 'x-skip-token-modal', llamamos a onUnauthorized.
+      const status = err?.response?.status;
+      const skip = err?.config?.headers?.['x-skip-token-modal'] || err?.config?.headers?.['X-Skip-Token-Modal'];
+      if (status === 401 && !skip && typeof window !== 'undefined') {
+        try {
+          onUnauthorized();
+        } catch (e) {
+          // defensiva: no rompe el interceptor si onUnauthorized falla
+          console.warn('onUnauthorized handler failed', e);
+        }
       }
       return Promise.reject(err);
     }

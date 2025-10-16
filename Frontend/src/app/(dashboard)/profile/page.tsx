@@ -244,11 +244,24 @@ export default function ProfileSettingsPage(): JSX.Element {
       showNotification(res.data?.message || 'Contraseña actualizada', 'success');
     } catch (err: any) {
       console.error('Error changing password:', err);
-      if (err?.response?.status === 401) setShowTokenExpiredModal(true);
-      else {
-        setError(err?.response?.data?.message || 'Error al cambiar la contraseña');
-        showNotification(err?.response?.data?.message || 'Error al cambiar la contraseña', 'error');
-      }
+      
+      if (!err.response) {
+      // err.request existe cuando hubo petición pero no respuesta
+      console.error('Request info:', err.request);
+      setError('No se pudo conectar con el servidor. Revisa tu conexión o el backend (CORS / servidor).');
+      showNotification('No se pudo conectar con el servidor.', 'error');
+      return;
+    }
+
+    if (err.response?.status === 401) {
+      setShowTokenExpiredModal(true);
+      return;
+    }
+
+    const serverMessage = err?.response?.data?.message;
+    setError(serverMessage || 'Error al cambiar la contraseña');
+    showNotification(serverMessage || 'Error al cambiar la contraseña', 'error');
+      
     } finally {
       setSaving(false);
     }

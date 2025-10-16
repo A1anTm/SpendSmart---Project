@@ -1,21 +1,21 @@
+// src/components/ThemeToggle.tsx (o donde tengas el toggle)
 'use client';
-
-import React from 'react';
 
 export function ThemeToggle() {
     const toggle = () => {
         try {
-        const isDark = document.documentElement.classList.contains('dark');
-        if (isDark) {
-            document.documentElement.classList.remove('dark');
-            try { localStorage.setItem('theme', 'light'); } catch (e) {}
-        } else {
-            document.documentElement.classList.add('dark');
-            try { localStorage.setItem('theme', 'dark'); } catch (e) {}
-        }
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) {
+                document.documentElement.classList.remove('dark');
+                try { localStorage.setItem('theme', 'light'); } catch (e) { }
+                try { document.cookie = 'theme=light; path=/; max-age=31536000; samesite=lax'; } catch (e) { }
+            } else {
+                document.documentElement.classList.add('dark');
+                try { localStorage.setItem('theme', 'dark'); } catch (e) { }
+                try { document.cookie = 'theme=dark; path=/; max-age=31536000; samesite=lax'; } catch (e) { }
+            }
         } catch (e) {
-        // si algo falla (ej. acceso bloqueado), no rompemos la app
-        console.warn('Theme toggle failed:', e);
+            console.warn('Theme toggle failed:', e);
         }
     };
 
@@ -26,8 +26,10 @@ export function ThemeToggle() {
         aria-label="Cambiar tema"
         type="button"
         >
-        <span className="dark:hidden">☀️</span>
-        <span className="hidden dark:inline">🌙</span>
+            <span className="dark:hidden">☀️</span>
+            <span className="hidden dark:inline">🌙</span>
         </button>
     );
-    }
+}
+
+

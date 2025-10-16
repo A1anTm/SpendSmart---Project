@@ -66,16 +66,20 @@ export default function SavingsGoalsPage() {
         }
     }, [setShowTokenExpiredModal]);
 
-    useEffect(() => {
-        if (!isAuthenticated) return;
-        fetchGoals();
+        useEffect(() => {
+            if (!isAuthenticated) return;
+            fetchGoals();
+           // fetchGoals está memoizado con useCallback. Para evitar que el array de dependencias
+           // cambie de tamaño (y el error que viste), no lo incluimos aquí.
+           // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAuthenticated]);
 
     useEffect(() => {
         if (!showTokenExpiredModal && isAuthenticated) {
             fetchGoals();
         }
-    }, [showTokenExpiredModal, isAuthenticated, fetchGoals]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showTokenExpiredModal, isAuthenticated]);
 
     if (!isAuthReady) return <div className="p-6">Cargando sesión...</div>;
     if (isAuthenticated === false) {
@@ -146,6 +150,19 @@ export default function SavingsGoalsPage() {
                 showNotification('Monto inválido', 'error');
                 return;
             }
+
+            // verificación defensiva: chequear que la meta no esté completa antes de enviar
+            const goalNow = goals.find(g => g._id === selectedGoalId);
+            if (!goalNow) {
+                showNotification('Meta no encontrada', 'error');
+                return;
+            }
+            if (Number(goalNow.current_amount) >= Number(goalNow.target_amount)) {
+                showNotification('La meta ya está alcanzada. No se puede agregar más dinero.', 'error');
+                setShowAddMoneyModal(false);
+                return;
+            }
+
             setAddMoneyError('');
 
             const resp = await api.patch(
@@ -183,6 +200,17 @@ export default function SavingsGoalsPage() {
     };
 
     const handleOpenAddMoneyModal = (goalId: string, goalName: string) => {
+        // comprobación: si la meta ya está completa, no abrir modal
+        const g = goals.find(x => x._id === goalId);
+        if (!g) {
+            showNotification('Meta no encontrada', 'error');
+            return;
+        }
+        if (Number(g.current_amount) >= Number(g.target_amount)) {
+            showNotification('La meta ya alcanzó su objetivo. No se puede agregar más dinero.', 'error');
+            return;
+        }
+
         setSelectedGoalId(goalId);
         setSelectedGoalName(goalName);
         setShowAddMoneyModal(true);
@@ -240,73 +268,97 @@ export default function SavingsGoalsPage() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {goals.map((goal) => (
-                            <div key={goal._id} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 flex flex-col">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex gap-3 items-start">
-                                        <div className="bg-purple-100 p-2 rounded-lg shrink-0">
-                                            <span className="text-purple-600">🎯</span>
-                                        </div>
-                                        <div className="min-w-0">
-                                            <h3 className="font-medium text-gray-800 dark:text-gray-100 truncate">{goal.name}</h3>
-                                            <p className="text-sm text-gray-600 dark:text-gray-100 line-clamp-2">{goal.description}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-sm text-gray-500">{new Date(goal.due_date).toLocaleDateString()}</div>
-                                </div>
+                        {goals.map((goal) => {
+                            const current = Number(goal.current_amount || 0);
+                            const target = Number(goal.target_amount || 0);
+                            const isComplete = current >= target;
 
-                                <div className="mt-4">
-                                    <div className="flex justify-between text-sm mb-1">
-                                        <span>Progreso</span>
-                                        <span>{goal.progress.toFixed(1)}%</span>
+                            return (
+                                <div key={goal._id} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 flex flex-col">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex gap-3 items-start">
+                                            <div className="bg-purple-100 p-2 rounded-lg shrink-0">
+                                                <span className="text-purple-600">🎯</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h3 className="font-medium text-gray-800 dark:text-gray-100 truncate">{goal.name}</h3>
+                                                <p className="text-sm text-gray-600 dark:text-gray-100 line-clamp-2">{goal.description}</p>
+                                            </div>
+                                        </div>
+                                        {/* Fecha  badge cuando está completa */}
+                                        <div className="flex flex-col items-end gap-1">
+                                            <div className="text-sm text-gray-500">{new Date(goal.due_date).toLocaleDateString()}</div>
+                                            {isComplete && (
+                                                <span
+                                                    title="Meta alcanzada"
+                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800"
+                                                >
+                                                    Alcanzada
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                        <div className="h-full bg-teal-600 rounded-full transition-all" style={{ width: `${Math.min(goal.progress, 100)}%` }} />
-                                    </div>
-                                    <div className="flex justify-between text-sm mt-2 text-gray-700 dark:text-gray-100">
-                                        <span>${goal.current_amount.toFixed(2)}</span>
-                                        <span>${goal.target_amount.toFixed(2)}</span>
-                                    </div>
-                                </div>
 
-                                <div className="grid grid-cols-2 gap-3 mt-4">
-                                    <div className="bg-gray-50 p-3 rounded-lg text-center">
-                                        {goal.status === 'vencida' ? (
-                                            <>
-                                                <span className="block text-sm text-gray-600">Estado</span>
-                                                <span className="block font-medium text-red-500">Vencida</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <span className="block text-sm text-gray-600 dark:text-gray-800">Días restantes</span>
-                                                <span className="block font-medium dark:text-gray-800 ">{calculateRemainingDays(goal.due_date)}</span>
-                                            </>
+                                    <div className="mt-4">
+                                        <div className="flex justify-between text-sm mb-1">
+                                            <span>Progreso</span>
+                                            <span>{Number(goal.progress || 0).toFixed(1)}%</span>
+                                        </div>
+                                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                            <div className="h-full bg-teal-600 rounded-full transition-all" style={{ width: `${Math.min(Number(goal.progress || 0), 100)}%` }} />
+                                        </div>
+                                        <div className="flex justify-between text-sm mt-2 text-gray-700 dark:text-gray-100">
+                                            <span>${Number(goal.current_amount || 0).toFixed(2)}</span>
+                                            <span>${Number(goal.target_amount || 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                        <div className="bg-gray-50 p-3 rounded-lg text-center">
+                                            {goal.status === 'vencida' ? (
+                                                <>
+                                                    <span className="block text-sm text-gray-600">Estado</span>
+                                                    <span className="block font-medium text-red-500">Vencida</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="block text-sm text-gray-600 dark:text-gray-800">Días restantes</span>
+                                                    <span className="block font-medium dark:text-gray-800 ">{calculateRemainingDays(goal.due_date)}</span>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        <div className="bg-gray-50 p-3 rounded-lg text-center">
+                                            <span className="block text-sm text-gray-600">Mensual requerido</span>
+                                            <span className="block font-medium text-green-600">${Number(goal.monthly_quota || 0).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 flex gap-2">
+                                        {/* Si la meta NO está completa mostramos Agregar Dinero */}
+                                        {!isComplete && (
+                                            <button
+                                                onClick={() => handleOpenAddMoneyModal(goal._id, goal.name)}
+                                                className="w-full border border-gray-200 rounded-lg py-2 text-sm text-gray-700 dark:text-gray-100 hover:bg-gray-50 hover:dark:bg-gray-700"
+                                            >
+                                                + Agregar Dinero
+                                            </button>
                                         )}
-                                    </div>
 
-                                    <div className="bg-gray-50 p-3 rounded-lg text-center">
-                                        <span className="block text-sm text-gray-600">Mensual requerido</span>
-                                        <span className="block font-medium text-green-600">${goal.monthly_quota.toFixed(2)}</span>
+                                        {/* Eliminar (si la meta está completa se muestra con más énfasis) */}
+                                        <button
+                                            onClick={() => deleteGoal(goal._id)}
+                                            className={`w-full rounded-lg py-2 text-sm transition ${isComplete
+                                                    ? 'bg-red-600 text-white hover:bg-red-700 border border-red-700'
+                                                    : 'border border-red-100 text-red-600 hover:bg-red-50 hover:dark:bg-gray-700'
+                                                }`}
+                                        >
+                                            Eliminar
+                                        </button>
                                     </div>
                                 </div>
-
-                                <div className="mt-4 flex gap-2">
-                                    <button
-                                        onClick={() => handleOpenAddMoneyModal(goal._id, goal.name)}
-                                        className="w-full border border-gray-200 rounded-lg py-2 text-sm text-gray-700 dark:text-gray-100 hover:bg-gray-50 hover:dark:bg-gray-700"
-                                    >
-                                        + Agregar Dinero
-                                    </button>
-
-                                    <button
-                                        onClick={() => deleteGoal(goal._id)}
-                                        className="w-full border border-red-100 text-red-600 rounded-lg py-2 text-sm hover:bg-red-50 hover:dark:bg-gray-700"
-                                    >
-                                        Eliminar
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 

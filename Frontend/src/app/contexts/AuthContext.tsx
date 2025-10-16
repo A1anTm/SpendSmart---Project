@@ -8,7 +8,7 @@ import React, {
     ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { setAuthToken, refreshAccessToken } from '@/lib/api';
+import { setAuthToken, refreshAccessToken, setupApiInterceptors } from '@/lib/api';
 import { jwtDecode } from 'jwt-decode';
 
 interface TokenPayload {
@@ -86,6 +86,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initAuth();
     }, []);
 
+    // Registrar interceptor una vez al montar el provider.
+    useEffect(() => {
+        // onUnauthorized: abrir modal de token expirado
+        const onUnauthorized = () => {
+            // evita abrir repetidamente si ya está visible
+            setShowTokenExpiredModal(true);
+        };
+
+        const eject = setupApiInterceptors(onUnauthorized);
+
+        return () => {
+            // cleanup: eyectar interceptor al desmontar
+            try {
+                eject();
+            } catch (e) {
+                // silencioso
+            }
+        };
+    }, []);
+
     const login = (newToken: string) => {
         try { localStorage.setItem('token', newToken); } catch { }
         setAuthToken(newToken);
@@ -106,6 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
+        // cerrar modal por si acaso
+        setShowTokenExpiredModal(false);
         router.push('/');
     };
 
@@ -115,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
+        setShowTokenExpiredModal(false);
     };
 
     const continueSession = async () => {

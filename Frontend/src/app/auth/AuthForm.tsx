@@ -38,27 +38,6 @@ export default function AuthPage() {
 
   const { setIsAuthenticated, setUser, login: authLogin } = useAuth();
 
-  
-  useEffect(() => {
-  try {
-    // leer safe desde localStorage (puede fallar en modo privado)
-    const saved = (() => {
-      try { return localStorage.getItem('theme'); } catch (e) { return null; }
-    })();
-
-    // Si hay valor guardado lo usamos; si no, usamos la preferencia del sistema
-    const initial = saved ?? systemTheme;
-
-    if (initial === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  } catch (e) {
-    console.warn('Theme init failed', e);
-  }
-}, [systemTheme]);
-
   const handleAuthSuccess = async (token: string) => {
     setError('');
 
