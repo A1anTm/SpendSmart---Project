@@ -12,10 +12,50 @@ function getMonthlyQuota(target, current, dueDate) {
     return diffMonths === 0 ? remaining : remaining / (diffMonths + 1);
 }
 
+function parseDateOnly(input) {
+    // Acepta 'YYYY-MM-DD' o Date | ISO string; devuelve Date en midnight local (hours 0,0,0,0) o null si inválida
+    if (!input) return null;
+    try {
+        if (typeof input === 'string') {
+            // si viene en formato YYYY-MM-DD (desde <input type="date">)
+            const isoDateMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (isoDateMatch) {
+                const y = Number(isoDateMatch[1]);
+                const m = Number(isoDateMatch[2]);
+                const d = Number(isoDateMatch[3]);
+                return new Date(y, m - 1, d); // constructor local
+            }
+            // fallback: intentar parsear cualquier string
+            const dt = new Date(input);
+            if (!isNaN(dt.getTime())) {
+                return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+            }
+            return null;
+        } else if (input instanceof Date) {
+            if (isNaN(input.getTime())) return null;
+            return new Date(input.getFullYear(), input.getMonth(), input.getDate());
+        } else {
+            // otros tipos -> invalid
+            return null;
+        }
+    } catch (e) {
+        return null;
+    }
+}
 
 export const createSavingsGoal = async (req, res) => {
     try {
         const { name, description, target_amount, due_date } = req.body;
+
+        // parsear fecha a midnight local
+        const dueDate = parseDateOnly(due_date);
+
+        // log de depuración (quítalo en producción si quieres)
+        console.log('📅 createSavingsGoal - payload due_date:', due_date, ' -> parsed dueDate:', dueDate);
+
+        if (!dueDate) {
+            return res.status(400).json({ message: 'Fecha límite inválida' });
+        }
 
         const exists = await SavingsGoal.findOne({
             user_id: req.user._id,
@@ -29,13 +69,13 @@ export const createSavingsGoal = async (req, res) => {
             name: name.trim(),
             description: description || '',
             target_amount,
-            due_date: new Date(due_date),
+            due_date: dueDate, // guardamos fecha normalizada (midnight local)
             current_amount: 0
         });
 
         return res.status(201).json({ goal });
     } catch (e) {
-        console.error(e);
+        console.error('Error al crear meta de ahorro ->', e);
         return res.status(500).json({ message: 'Error al crear meta de ahorro' });
     }
 };

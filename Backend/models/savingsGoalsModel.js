@@ -56,11 +56,23 @@ import validator from 'validator';
         }
     },
     due_date: {
-        type: Date,
-        required: [true, 'La fecha límite es obligatoria'],
-        validate: {
+    type: Date,
+    required: [true, 'La fecha límite es obligatoria'],
+    validate: {
         validator(v) {
-            return validator.isAfter(v.toISOString());
+            try {
+            const due = new Date(v);
+            if (isNaN(due.getTime())) return false;
+            due.setHours(0, 0, 0, 0);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // estrictamente futura (>, no >=)
+            return due.getTime() > today.getTime();
+            } catch (e) {
+            return false;
+            }
         },
         message: 'La fecha límite debe ser futura'
         }

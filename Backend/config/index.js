@@ -23,14 +23,21 @@ app.use(cookieParser());
 
 const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
 
-app.use(
+  // CORS: permitir el origen del cliente, credenciales y headers custom
+    app.use(
     cors({
         origin: allowedOrigin,
         credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'x-skip-token-modal', 'Accept', 'X-Requested-With'],
     })
-    );
+);
+
+    app.options('*', cors({
+    origin: allowedOrigin,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-skip-token-modal', 'Accept', 'X-Requested-With'],
+    }));
 
     app.use('/api/users', userRoutes);
     app.use('/api/transactions', transactionRoutes);
