@@ -12,6 +12,14 @@ const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin']
 export const metadata: Metadata = {
   title: 'SpendSmart',
   description: 'Tu app de finanzas personales',
+  icons: {
+    icon: '/favicon-32x32.png', // favicon por defecto
+    apple: '/apple-touch-icon.png', 
+    other: [
+      { rel: 'icon', url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { rel: 'icon', url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+    ],
+  },
 };
 
 /**
