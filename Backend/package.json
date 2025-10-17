@@ -1,10 +1,11 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "config/index.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon ./config/index.js"
+    "dev": "nodemon ./config/index.js",
+    "start": "node ./config/index.js"
   },
   "keywords": [],
   "author": "",
